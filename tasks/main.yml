@@ -1,0 +1,150 @@
+---
+
+- name: Install EPEL repo
+  yum: name=epel-release state=installed update_cache=yes
+  when: ansible_os_family == "RedHat"
+  tags:
+    - mongodb
+    - rpms
+
+- name: Install policycoreutils-python
+  yum: name={{ item }} state=installed
+  when: ansible_os_family == "RedHat"
+  with_items:
+    - policycoreutils-python
+  tags:
+    - mongodb
+    - rpms
+
+- name: Create the MongoDB repo file
+  copy: src=mongodb.repo dest=/etc/yum.repos.d/mongodb-org-3.5.repo
+  tags:
+    - mongodb
+    - rpms
+
+- name: Install MongoDB
+  when: ansible_os_family == "RedHat"
+  yum: name={{ item }} state=installed update_cache=yes
+  notify: restart mongod
+  with_items: '{{ mongo_rpms }}'
+  tags:
+    - mongodb
+    - rpms
+
+- name: Install pymongo
+  pip: name=pymongo state=present
+  tags:
+    - mongodb
+    - python
+    - pymongo
+
+- name: Copy the configuration file
+  template: src=mongod.conf.j2 dest=/etc/mongod.conf
+  notify: restart mongod
+  tags:
+    - mongodb
+
+- name: Copy limits file
+  copy: src=mongo_limits.conf dest=/etc/security/limits.d/mongo_limits.conf
+        owner=root group=root
+  notify: restart mongod
+  tags:
+    - mongodb
+
+- name: Create dir for tuned profile
+  file:
+    path: /etc/tuned/no-thp
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  tags:
+    - mongodb
+    - tuned
+
+- name: Copy tuned profile
+  copy:
+    src: tuned.conf
+    dest: /etc/tuned/no-thp/tuned.conf
+  register: tuned
+  tags:
+    - mongodb
+    - tuned
+
+- name: Enable tuned profile
+  command: tuned-adm profile no-thp
+  when: tuned.changed
+  changed_when: tuned.changed
+  tags:
+    - mongodb
+    - tuned
+    - skip_ansible_lint
+
+- name: Verify tuned profile
+  command: "grep 'always madvise \\[never\\]' /sys/kernel/mm/transparent_hugepage/enabled"
+  changed_when: no
+  tags:
+    - mongodb
+    - tuned
+    - test
+
+- name: ensure firewalld is running
+  service: name=firewalld enabled=yes state=started
+  tags:
+    - mongodb
+    - firewall
+
+- name: Grant access to Mongo port
+  become: yes
+  firewalld: port="{{ mongo_net.port }}/tcp" permanent=true state=enabled immediate=yes
+  when: buildserver_ip_address is defined
+  notify: restart firewalld
+  tags:
+    - mongodb
+    - firewall
+    - server
+
+- name: Install disable-thp script
+  copy: src=disable-thp
+        dest=/etc/init.d/disable-thp
+        mode=0755
+  register: disable_thp
+  notify: restart disable-thp
+  tags:
+    - mongodb
+    - disable-thp
+
+- name: Enable disable-thp service on startup
+  command: chkconfig --add disable-thp
+  when: disable_thp.changed
+  tags:
+    - mongodb
+    - disable-thp
+    - skip_ansible_lint
+
+- name: Install mongod start script
+  template: src=mongod.j2
+        dest=/etc/init.d/mongod
+        mode=0755
+  notify: restart mongod
+  tags:
+    - mongodb
+
+- name: Enable mongod service on startup
+  service: name=mongod enabled=yes
+  tags:
+    - mongodb
+
+- name: Start mongod
+  service: name=mongod state=started
+  tags:
+    - mongodb
+
+- name: Create Mongo user
+  mongodb_user:
+    name: admin
+    password: "{{ mongo_password }}"
+    database: admin
+    state: present
+  tags:
+    - mongodb
