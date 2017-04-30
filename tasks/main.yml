@@ -1,15 +1,17 @@
 ---
 
 - name: Install EPEL repo
+  become: yes
+  when: ansible_os_family == 'RedHat'
   yum: name=epel-release state=installed update_cache=yes
-  when: ansible_os_family == "RedHat"
   tags:
     - mongodb
     - rpms
 
 - name: Install policycoreutils-python
+  become: yes
+  when: ansible_os_family == 'RedHat'
   yum: name={{ item }} state=installed
-  when: ansible_os_family == "RedHat"
   with_items:
     - policycoreutils-python
   tags:
@@ -23,7 +25,8 @@
     - rpms
 
 - name: Install MongoDB
-  when: ansible_os_family == "RedHat"
+  become: yes
+  when: ansible_os_family == 'RedHat'
   yum: name={{ item }} state=installed update_cache=yes
   notify: restart mongod
   with_items: '{{ mongo_rpms }}'
