@@ -185,4 +185,4 @@ galaxy_info:
     # alphanumeric characters. Maximum 20 tags per role.
 
 dependencies:
-  - base_epel
+  - bbaassssiiee.base_epel

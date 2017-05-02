@@ -1,7 +1,6 @@
 ---
 
 - name: Install policycoreutils-python
-  become: yes
   when: ansible_os_family == 'RedHat'
   yum: name={{ item }} state=installed
   with_items:
@@ -17,7 +16,6 @@
     - rpms
 
 - name: Install MongoDB
-  become: yes
   when: ansible_os_family == 'RedHat'
   yum: name={{ item }} state=installed update_cache=yes
   notify: restart mongod
@@ -90,7 +88,6 @@
     - firewall
 
 - name: Grant access to Mongo port
-  become: yes
   firewalld: port="{{ mongo_net.port }}/tcp" permanent=true state=enabled immediate=yes
   when: buildserver_ip_address is defined
   notify: restart firewalld
