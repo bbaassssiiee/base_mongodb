@@ -32,7 +32,7 @@
     - pymongo
 
 - name: Copy the configuration file
-  template: src=mongod.conf.j2 dest=/etc/mongod.conf
+  template: src=mongod.conf dest=/etc/mongod.conf
   notify: restart mongod
   tags:
     - mongodb
@@ -115,7 +115,7 @@
     - skip_ansible_lint
 
 - name: Install mongod start script
-  template: src=mongod.j2
+  template: src=mongod
         dest=/etc/init.d/mongod
         mode=0755
   notify: restart mongod
